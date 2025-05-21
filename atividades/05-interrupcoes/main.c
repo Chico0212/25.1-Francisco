@@ -22,16 +22,10 @@ int count_factor = 1;
 volatile int64_t last_press_a = 0;
 volatile int64_t last_press_b = 0;
 
-#define DEBOUNCE_US 100000
+#define DEBOUNCE_US 150000
 
 #define LOW  0
 #define HIGH 1
-
-void debounce() {
-  int64_t pressed = esp_timer_get_time();
-  while (esp_timer_get_time() - pressed > DEBOUNCE_US)
-    vTaskDelay(10);
-}
 
 void IRAM_ATTR button_a_ISR(void* arg) {
     int64_t now = esp_timer_get_time();
@@ -71,7 +65,7 @@ void app_main() {
     .mode = GPIO_MODE_INPUT,
     .pull_up_en = GPIO_PULLUP_ENABLE,
     .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_NEGEDGE
+    .intr_type = GPIO_INTR_LOW_LEVEL
   };
   gpio_config(&config_in);
 
