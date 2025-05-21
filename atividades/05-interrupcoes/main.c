@@ -19,23 +19,42 @@ int count_factor = 1;
 #define IN_BIT_MASK ((1UL << BTN_A) | (1UL << BTN_B))
 #define OUT_BIT_MASK ((1UL << LED_1) | (1UL << LED_2) | (1UL << LED_3) | (1UL << LED_4))
 
-#define LOW 0
+volatile int64_t last_press_a = 0;
+volatile int64_t last_press_b = 0;
+
+#define DEBOUNCE_US 100000
+
+#define LOW  0
 #define HIGH 1
 
-void IRAM_ATTR button_a_ISR() {
-  counter += count_factor;
-  if (counter > 15) {
-    counter -= 16;
-  }
-  gpio_set_level(LED_1, ((counter >> 0) & 0b01) ? HIGH : LOW);
-  gpio_set_level(LED_2, ((counter >> 1) & 0b01) ? HIGH : LOW);
-  gpio_set_level(LED_3, ((counter >> 2) & 0b01) ? HIGH : LOW);
-  gpio_set_level(LED_4, ((counter >> 3) & 0b01) ? HIGH : LOW);
+void debounce() {
+  int64_t pressed = esp_timer_get_time();
+  while (esp_timer_get_time() - pressed > DEBOUNCE_US)
+    vTaskDelay(10);
 }
 
-void IRAM_ATTR button_b_ISR() {
-    count_factor = count_factor == 1 ? 2 : 1;
+void IRAM_ATTR button_a_ISR(void* arg) {
+    int64_t now = esp_timer_get_time();
+    if (now - last_press_a > DEBOUNCE_US) {
+        last_press_a = now;
+        counter += count_factor;
+        if (counter > 15) counter -= 16;
+
+        gpio_set_level(LED_1, ((counter >> 0) & 0x01) ? HIGH : LOW);
+        gpio_set_level(LED_2, ((counter >> 1) & 0x01) ? HIGH : LOW);
+        gpio_set_level(LED_3, ((counter >> 2) & 0x01) ? HIGH : LOW);
+        gpio_set_level(LED_4, ((counter >> 3) & 0x01) ? HIGH : LOW);
+    }
 }
+
+void IRAM_ATTR button_b_ISR(void* arg) {
+    int64_t now = esp_timer_get_time();
+    if (now - last_press_b > DEBOUNCE_US) {
+        last_press_b = now;
+        count_factor = (count_factor == 1) ? 2 : 1;
+    }
+}
+
 
 void app_main() {
   gpio_config_t config_out = {
@@ -52,14 +71,14 @@ void app_main() {
     .mode = GPIO_MODE_INPUT,
     .pull_up_en = GPIO_PULLUP_ENABLE,
     .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    .intr_type = GPIO_INTR_LOW_LEVEL
+    .intr_type = GPIO_INTR_NEGEDGE
   };
-
-  gpio_install_isr_service(1);
-  gpio_isr_handler_add(BTN_A, button_a_ISR, (void*)BTN_A);
-  gpio_isr_handler_add(BTN_B, button_b_ISR, (void*)BTN_B);
-  
   gpio_config(&config_in);
 
-  while (1);
+  gpio_install_isr_service(1);
+  gpio_isr_handler_add(BTN_A, button_a_ISR, NULL);
+  gpio_isr_handler_add(BTN_B, button_b_ISR, NULL);
+
+
+  while (1) vTaskDelay(1000);
 }
