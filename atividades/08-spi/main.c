@@ -59,8 +59,8 @@ volatile int64_t last_press_b = 0;
 
 // sd_card
 #define SD_MNT_POINT "/files"
-#define MOSI GPIO_NUM_13
 #define MISO GPIO_NUM_12
+#define MOSI GPIO_NUM_13
 #define SCLK GPIO_NUM_14
 #define CS   GPIO_NUM_15
 
